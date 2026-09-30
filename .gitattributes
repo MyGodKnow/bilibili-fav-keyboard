@@ -1,0 +1,15 @@
+# 提交进仓库的文本一律 LF，避免 Windows 上 CRLF/LF 反复变动产生无意义的 diff
+* text=auto eol=lf
+
+*.user.js text eol=lf
+*.md       text eol=lf
+*.json     text eol=lf
+LICENSE    text eol=lf
+
+# 图片按二进制处理，不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
