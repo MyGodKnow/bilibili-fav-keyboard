@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         B站收藏夹键盘操作（E / ↑↓ / 空格 / 回车）
+// @name         B站收藏夹键盘操作
 // @namespace    https://github.com/MyGodKnow/bilibili-fav-keyboard
-// @version      2.0.0
+// @version      1.0.0
 // @description  按 E 呼出收藏弹窗后，用 ↑/↓ 选择收藏夹、空格 加入/移除、回车 保存
 // @author       MyGodKnow
 // @homepageURL  https://github.com/MyGodKnow/bilibili-fav-keyboard
