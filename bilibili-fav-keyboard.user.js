@@ -537,11 +537,15 @@
         cursor = 0;
         liveTimer = setInterval(() => {
             // 唯一的退出条件：检测到收藏框已经关掉
-            if (!dialog || !dialog.isConnected || !isVisible(dialog)) onDialogClosed();
-            else onViewportChange(); // 列表被滚动（含虚拟滚动）时，让下划线跟上
+            if (!dialog || !dialog.isConnected || !isVisible(dialog)) { onDialogClosed(); return; }
+            // 列表被重绘（勾选/取消勾选后 B 站常整列换新节点）→ 按原下标重新取行
+            if (items.some((el) => !el.isConnected)) { refresh(); return; }
+            onViewportChange(); // 列表被滚动（含虚拟滚动）时，让下划线跟上
         }, 400);
         window.addEventListener('scroll', onViewportChange, true);
         window.addEventListener('resize', onViewportChange);
+        // 鼠标点选收藏夹时，让下划线和提示条也跟过去
+        document.addEventListener('click', onRowClick, true);
         showKeyHint();
         paint();
         log('已接管，行数 =', rows.length, '根节点 =', String(root.className));
@@ -553,6 +557,7 @@
         liveTimer = 0;
         window.removeEventListener('scroll', onViewportChange, true);
         window.removeEventListener('resize', onViewportChange);
+        document.removeEventListener('click', onRowClick, true);
         clearTimeout(snapTimer);
         snapTimer = 0;
         if (barEl) barEl.classList.remove('on', 'hit-on', 'hit-off', 'snap');
@@ -595,6 +600,25 @@
             }
         }
         return false;
+    }
+
+    // 鼠标点在某一行的任意位置（含勾选框）→ 把光标挪到那一行，下划线和提示条跟着走
+    function onRowClick(e) {
+        if (!dialog || !dialog.isConnected || !isVisible(dialog)) return;
+        const t = e.target;
+        if (!t || !dialog.contains(t)) return;
+
+        let idx = -1;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i] === t || items[i].contains(t)) { idx = i; break; }
+        }
+        if (idx < 0) return; // 点的是"新建收藏夹"、确定之类的按钮，不动下划线
+
+        cursor = idx;
+        paint(); // 先按点中的那一行把下划线画过去
+        // 勾选/取消勾选后 B 站常常重绘整列，行元素会换新节点；
+        // 等这次点击处理完再按相同下标取一遍，下划线就还落在同一个收藏夹上
+        setTimeout(() => { if (dialog) refresh(); }, 0);
     }
 
     /* ============================ 具体动作 ============================ */
