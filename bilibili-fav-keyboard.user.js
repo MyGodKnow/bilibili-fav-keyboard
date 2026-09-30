@@ -536,7 +536,8 @@
         items = rows;
         cursor = 0;
         liveTimer = setInterval(() => {
-            if (!dialog || !dialog.isConnected || !isVisible(dialog)) detach();
+            // 唯一的退出条件：检测到收藏框已经关掉
+            if (!dialog || !dialog.isConnected || !isVisible(dialog)) onDialogClosed();
             else onViewportChange(); // 列表被滚动（含虚拟滚动）时，让下划线跟上
         }, 400);
         window.addEventListener('scroll', onViewportChange, true);
@@ -563,7 +564,7 @@
     }
 
     function refresh() {
-        if (!dialog || !dialog.isConnected || !isVisible(dialog)) { detach(); return false; }
+        if (!dialog || !dialog.isConnected || !isVisible(dialog)) { onDialogClosed(); return false; }
         const next = collectItems(dialog);
         if (next.length) items = next;
         if (!items.length) { detach(); return false; }
@@ -574,10 +575,15 @@
 
     // 已经开着弹窗（比如用鼠标点的收藏按钮）时，也能立刻接管
     function ensureDialog() {
-        if (Date.now() < suppressUntil) return false; // 刚保存/关闭，别再接管
-        if (dialog && dialog.isConnected && isVisible(dialog)) {
-            if (!items.length || items.some((el) => !el.isConnected)) refresh();
-            return !!items.length;
+        if (Date.now() < suppressUntil) return false; // 刚关闭，别再接管残留在 DOM 里的弹窗
+        if (dialog) {
+            if (dialog.isConnected && isVisible(dialog)) {
+                if (!items.length || items.some((el) => !el.isConnected)) refresh();
+                return !!items.length;
+            }
+            // 之前接管的收藏框已经关掉了 → 在这里立刻收尾（不等 400ms 轮询）
+            onDialogClosed();
+            return false;
         }
         const now = Date.now();
         if (now - lastOpenCheck > 500) {
@@ -674,11 +680,21 @@
     }
 
     // 保存/关闭后的收尾：进入静默期 + 把焦点从弹窗里放掉
+    // 不再主动去关弹窗，而是等检测到收藏框确实关掉（B 站自己关）才 detach
     function finishClose() {
         suppressUntil = Date.now() + 900;
-        detach();
         releasePopupFocus();
         setTimeout(releasePopupFocus, 150); // 有的弹窗关闭时会把焦点收回去，再放掉一次
+    }
+
+    // 检测到收藏框已经关掉：真正退出接管（清理定时器、下划线、提示条，把控制权交还页面）
+    function onDialogClosed() {
+        if (!dialog) return;
+        log('检测到收藏框关闭，退出接管');
+        suppressUntil = Date.now() + 400; // 弹窗有时只是被隐藏、仍挂在 DOM 里，短暂静默避免又接管回去
+        detach();
+        releasePopupFocus();
+        setTimeout(releasePopupFocus, 150); // 关闭瞬间焦点可能被弹窗收回，再放一次
     }
 
     // 只 blur 回 body，不主动去 focus 播放器：
@@ -741,7 +757,8 @@
             case 'ArrowDown': move(1); break;
             case 'ArrowUp': move(-1); break;
             case 'Enter': save(); return;
-            case 'Escape': finishClose(); return; // 关闭交给 B 站，收尾我们自己做
+            // Esc 不做处理：放行给 B 站去关收藏框，
+            // 脚本退出只由"检测到收藏框关闭"触发（见 onDialogClosed）
             default:
                 if (isSpace) toggleCurrent();
                 else handled = false;
